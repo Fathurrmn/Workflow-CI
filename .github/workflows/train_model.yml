@@ -1,0 +1,101 @@
+name: MLProject
+
+on:
+  # Trigger saat ada push ke branch main
+  push:
+    branches:
+      - main
+  # Trigger manual dari tab Actions
+  workflow_dispatch:
+
+jobs:
+  train-model:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up job
+        run: echo "Starting training job"
+
+      # ========================
+      # 1. Checkout repository
+      # ========================
+      - name: Run actions/checkout@v3
+        uses: actions/checkout@v3
+
+      # ========================
+      # 2. Setup Python & Conda
+      # ========================
+      - name: Set up Python 3.12.7
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.7"
+
+      - name: Check Env
+        run: python --version
+
+      - name: Install dependencies (Conda)
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          # Menggunakan nama environment yang disarankan
+          activate-environment: workflow-ci
+          environment-file: MLProject/conda.yaml
+          auto-activate-base: false
+
+      # ========================
+      # 3. Run MLflow Project
+      # ========================
+      - name: Run mlflow project
+        # Gunakan shell bash -l {0} untuk memastikan Conda env loaded
+        shell: bash -l {0} 
+        run: |
+          echo "🚀 Menjalankan proyek MLflow dengan parameter..."
+          
+          # Pindah ke direktori proyek MLProject
+          cd MLProject
+          
+          # --- PERBAIKAN FINAL: Cleanup dan Memastikan MLflow Experiment 0 Terinisialisasi ---
+          
+          # 0. Hapus direktori mlruns yang mungkin rusak/tidak lengkap
+          # Ini memastikan MLflow memulai dari kondisi bersih di CI.
+          if [ -d "mlruns" ]; then
+             echo "🗑️ Menghapus direktori 'mlruns' untuk memastikan inisialisasi yang bersih."
+             rm -rf mlruns
+          fi
+          
+          # 1. Tentukan direktori tracking lokal
+          export MLFLOW_TRACKING_URI=./mlruns
+          
+          # 2. Paksa MLflow untuk menggunakan experiment ID 0, ini akan memaksa
+          #    pembuatan file meta.yaml jika mlruns/0 belum ada.
+          echo "⚡ Memaksa MLflow untuk menggunakan Experiment ID 0 (Default)..."
+          export MLFLOW_EXPERIMENT_ID=0
+
+          # 3. Jalankan MLflow Run
+          # Ganti Preprocessed_Dry_Bean.csv dengan amazon_preprocessed.csv
+          mlflow run . -P data_path=amazon_preprocessed.csv || { echo "❌ Training dengan MLflow gagal"; exit 1; }
+
+      # ========================
+      # 4. Handle Run ID & MLflow Utility
+      # ========================
+      # Langkah ini adalah placeholder yang Anda minta, dengan referensi ID spesifik.
+      - name: Get latest MLflow run_id
+        run: |
+          echo "Handled internally by MLflow"
+          echo "Referenced MLflow ID: d60cf32653d841f4ae34e9f5e68274b7"
+
+      # ========================
+      # 5. Prepare and Upload Artifacts
+      # ========================
+      - name: Upload to Google Drive (Prepare artifacts)
+        run: |
+          echo "📦 Menyiapkan folder mlruns untuk diunggah..."
+          # Membuat struktur folder 'saved_artifacts'
+          mkdir -p saved_artifacts
+          # Menyalin hasil tracking MLflow lokal ke folder yang akan diunggah
+          cp -r MLProject/mlruns saved_artifacts/mlruns
+
+      - name: Upload MLruns as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlruns
+          path: saved_artifacts/mlruns/

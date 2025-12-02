@@ -1,0 +1,14 @@
+# Nama Proyek MLflow
+name: amazon-mlflow
+
+# Menunjuk ke file Conda untuk menyiapkan environment
+conda_env: conda.yaml
+
+# Entry Point untuk menjalankan skrip modeling
+entry_points:
+  main:
+    # Parameter yang akan di-inject ke dalam command
+    parameters:
+      data_path: {type: str, default: "amazon_preprocessed.csv"}
+    # Command yang dieksekusi: memanggil modelling.py dan mengirimkan parameter
+    command: "python modelling.py --data_path {data_path}"
